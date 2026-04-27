@@ -41,27 +41,34 @@ const int LEFT_DRIVE_SIGN = 1;
 const int RIGHT_DRIVE_SIGN = 1;
 
 // ---------- ULTRASONIC ----------
-const long FRONT_DETECT_CM = 110;
+const long FRONT_DETECT_CM = 65;
 const long FRONT_CLOSE_CM = 35;
-const long FRONT_NO_TARGET_CM = 250;
-const unsigned long ULTRASONIC_GAP_MS = 28;
-const unsigned long FRONT_MEMORY_MS = 220;
+const long FRONT_MIN_CM = 2;
+const long FRONT_NO_TARGET_CM = 80;
+const unsigned long ULTRASONIC_GAP_MS = 20;
+const unsigned long FRONT_MEMORY_MS = 200;
 const unsigned long IR_MEMORY_MS = 250;
 const unsigned long LINE_MEMORY_MS = 120;
+const unsigned long FRONT_LOCK_MS = 280;
 
 // ---------- TACTICAL / TIMING ----------
-const unsigned long START_DELAY_MS = 3000;
-const unsigned long ESCAPE_HOLD_MS = 3000;
-const unsigned long SEARCH_TURN_MS = 600;
-const unsigned long SEARCH_PAUSE_MS = 50;
-const unsigned long SEARCH_FAST_TURN_MS = 150;
-const unsigned long SEARCH_RESET_MS = 10000;
+const unsigned long START_DELAY_MS = 5180;
+const unsigned long ESCAPE_HOLD_MS = 600;
+const unsigned long SEARCH_RESET_MS = 1600;
+const unsigned long STARTUP_SETTLE_MS = 120;
+const unsigned long SEARCH_KICK_MS = 90;
+const int PWM_FREQ_HZ = 20000;
 const unsigned long DEBUG_PRINT_MS = 150;
+const unsigned long BRAKE_HOLD_MS = 80;
 
 uint8_t searchDir = 0;  // 0 - right, 1 - left
+bool searchDirLocked = false;  // true when set by IR/lock; prevents random override
 bool robotOn = false;
 bool waitingStart = false;
 unsigned long startTimer = 0;
+unsigned long robotStartedAt = 0;
+uint8_t frontLeftHits = 0;
+uint8_t frontRightHits = 0;
 
 unsigned long searchStartTime = 0;
 uint8_t searchState = 0;  // 0-turn, 1-pause, 2-fast turn back
@@ -86,6 +93,11 @@ int escapeLeftSpeed = 0;
 int escapeRightSpeed = 0;
 
 unsigned long lastDebugPrint = 0;
+bool brakeRushActive = false;
+unsigned long brakeRushUntil = 0;
+bool frontLockActive = false;
+unsigned long frontLockUntil = 0;
+int frontLockDirection = 0;  // -1 left, 1 right, 0 centered/unknown
 
 // ---------- MOTOR FUNCTIONS ----------
 
@@ -177,55 +189,125 @@ void updateFrontSensors() {
 
   lastUltrasonicRead = millis();
 
+  // Suppress reads during the first few ms after start so the very first
+  // ultrasonic ping (which often returns junk) cannot phantom-lock the robot.
+  if (robotStartedAt != 0 && millis() - robotStartedAt < STARTUP_SETTLE_MS) {
+    return;
+  }
+
   if (readLeftUltrasonicNext) {
     frontLeftDistance = readUltrasonicCm(TRIGL, ECHOL);
-    if (frontLeftDistance <= FRONT_DETECT_CM) {
-      lastFrontLeftSeen = millis();
+    if (isFrontDistanceDetected(frontLeftDistance)) {
+      if (frontLeftHits < 2) frontLeftHits++;
+      if (frontLeftHits >= 2) {
+        lastFrontLeftSeen = millis();
+        frontLockActive = true;
+        frontLockUntil = millis() + FRONT_LOCK_MS;
+        frontLockDirection = -1;
+      }
+    } else {
+      frontLeftHits = 0;
     }
   } else {
     frontRightDistance = readUltrasonicCm(TRIGR, ECHOR);
-    if (frontRightDistance <= FRONT_DETECT_CM) {
-      lastFrontRightSeen = millis();
+    if (isFrontDistanceDetected(frontRightDistance)) {
+      if (frontRightHits < 2) frontRightHits++;
+      if (frontRightHits >= 2) {
+        lastFrontRightSeen = millis();
+        frontLockActive = true;
+        frontLockUntil = millis() + FRONT_LOCK_MS;
+        frontLockDirection = 1;
+      }
+    } else {
+      frontRightHits = 0;
     }
   }
 
   readLeftUltrasonicNext = !readLeftUltrasonicNext;
 }
 
+void updateFrontLockState(bool oppFL, bool oppFR) {
+  if (oppFL && oppFR) {
+    frontLockActive = true;
+    frontLockUntil = millis() + FRONT_LOCK_MS;
+    frontLockDirection = 0;
+    return;
+  }
+
+  // Hysteresis: when only one side is currently visible but the lock
+  // was already centered, don't snap to that side immediately — only
+  // commit to a side after the centered memory has fully decayed.
+  if (oppFL) {
+    frontLockActive = true;
+    frontLockUntil = millis() + FRONT_LOCK_MS;
+    if (frontLockDirection != 0) {
+      frontLockDirection = -1;
+    }
+    return;
+  }
+
+  if (oppFR) {
+    frontLockActive = true;
+    frontLockUntil = millis() + FRONT_LOCK_MS;
+    if (frontLockDirection != 0) {
+      frontLockDirection = 1;
+    }
+    return;
+  }
+
+  if (frontLockActive && millis() >= frontLockUntil) {
+    frontLockActive = false;
+    frontLockDirection = 0;
+  }
+}
+
 bool isFrontLeftDetected() {
-  return (millis() - lastFrontLeftSeen) <= FRONT_MEMORY_MS;
+  return lastFrontLeftSeen != 0 && (millis() - lastFrontLeftSeen) <= FRONT_MEMORY_MS;
 }
 
 bool isFrontRightDetected() {
-  return (millis() - lastFrontRightSeen) <= FRONT_MEMORY_MS;
+  return lastFrontRightSeen != 0 && (millis() - lastFrontRightSeen) <= FRONT_MEMORY_MS;
 }
 
 bool isEnemyCentered() {
   return isFrontLeftDetected() && isFrontRightDetected();
 }
 
+bool isFrontDistanceDetected(long distanceCm) {
+  return distanceCm >= FRONT_MIN_CM && distanceCm <= FRONT_DETECT_CM;
+}
+
 bool isIrLeftDetected() {
-  return (millis() - lastIrLeftSeen) <= IR_MEMORY_MS;
+  return lastIrLeftSeen != 0 && (millis() - lastIrLeftSeen) <= IR_MEMORY_MS;
 }
 
 bool isIrRightDetected() {
-  return (millis() - lastIrRightSeen) <= IR_MEMORY_MS;
+  return lastIrRightSeen != 0 && (millis() - lastIrRightSeen) <= IR_MEMORY_MS;
 }
 
 bool isLineFLDetected() {
-  return (millis() - lastLineFLSeen) <= LINE_MEMORY_MS;
+  return lastLineFLSeen != 0 && (millis() - lastLineFLSeen) <= LINE_MEMORY_MS;
 }
 
 bool isLineFRDetected() {
-  return (millis() - lastLineFRSeen) <= LINE_MEMORY_MS;
+  return lastLineFRSeen != 0 && (millis() - lastLineFRSeen) <= LINE_MEMORY_MS;
 }
 
 bool isLineBLDetected() {
-  return (millis() - lastLineBLSeen) <= LINE_MEMORY_MS;
+  return lastLineBLSeen != 0 && (millis() - lastLineBLSeen) <= LINE_MEMORY_MS;
 }
 
 bool isLineBRDetected() {
-  return (millis() - lastLineBRSeen) <= LINE_MEMORY_MS;
+  return lastLineBRSeen != 0 && (millis() - lastLineBRSeen) <= LINE_MEMORY_MS;
+}
+
+void motorsHardBrake() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, HIGH);
+  analogWrite(ENA, 255);
+  analogWrite(ENB, 255);
 }
 
 // ---------- EDGE ESCAPE ----------
@@ -235,6 +317,7 @@ void startEscape(int leftSpeed, int rightSpeed) {
   escapeUntil = millis() + ESCAPE_HOLD_MS;
   escapeLeftSpeed = leftSpeed;
   escapeRightSpeed = rightSpeed;
+  brakeRushActive = false;
 }
 
 bool handleEscape() {
@@ -251,7 +334,39 @@ bool handleEscape() {
   return true;
 }
 
+void startBrakeRush() {
+  brakeRushActive = true;
+  brakeRushUntil = millis() + BRAKE_HOLD_MS;
+}
+
+bool handleBrakeRush() {
+  if (!brakeRushActive) {
+    return false;
+  }
+
+  if (millis() < brakeRushUntil) {
+    motorsHardBrake();
+    return true;
+  }
+
+  brakeRushActive = false;
+  motorsForward(SPEED_RUSH);
+  return true;
+}
+
 void handleLineEscape(bool lineFL, bool lineFR, bool lineBL, bool lineBR) {
+  // Allow re-trigger if a new line is detected on the OPPOSITE side
+  // of the current escape direction (so we don't drive off the far edge).
+  if (escapeActive) {
+    bool escapingBackward = escapeLeftSpeed < 0 || escapeRightSpeed < 0;
+    bool escapingForward = escapeLeftSpeed > 0 && escapeRightSpeed > 0;
+    bool oppositeHit = (escapingBackward && (lineBL || lineBR)) ||
+                       (escapingForward && (lineFL || lineFR));
+    if (!oppositeHit) {
+      return;
+    }
+  }
+
   if (lineFL || lineFR) {
     if (lineFL && lineFR) {
       startEscape(-SPEED_ESCAPE, -SPEED_ESCAPE);
@@ -263,13 +378,14 @@ void handleLineEscape(bool lineFL, bool lineFR, bool lineBL, bool lineBR) {
     return;
   }
 
-  if (lineBL) {
-    startEscape(SPEED_ESCAPE, SPEED_ESCAPE_BIAS);
-    return;
-  }
-
-  if (lineBR) {
-    startEscape(SPEED_ESCAPE_BIAS, SPEED_ESCAPE);
+  if (lineBL || lineBR) {
+    if (lineBL && lineBR) {
+      startEscape(SPEED_ESCAPE, SPEED_ESCAPE);
+    } else if (lineBL) {
+      startEscape(SPEED_ESCAPE, SPEED_ESCAPE_BIAS);
+    } else {
+      startEscape(SPEED_ESCAPE_BIAS, SPEED_ESCAPE);
+    }
   }
 }
 
@@ -277,8 +393,7 @@ void handleLineEscape(bool lineFL, bool lineFR, bool lineBL, bool lineBR) {
 
 void resetSearchState() {
   searchStartTime = 0;
-  searchState = 0;
-  stateStartTime = 0;
+  searchDirLocked = false;
 }
 
 void aggressiveSearchInPlace() {
@@ -286,54 +401,35 @@ void aggressiveSearchInPlace() {
 
   if (searchStartTime == 0) {
     searchStartTime = now;
-    stateStartTime = now;
-    searchState = 0;
+    if (!searchDirLocked) {
+      searchDir = random(0, 2);
+    }
   }
 
-  switch (searchState) {
-    case 0:
-      if (searchDir == 0) {
-        motorsTurnRight(SPEED_TURN);
-      } else {
-        motorsTurnLeft(SPEED_TURN);
-      }
+  // Kick: during the first SEARCH_KICK_MS of a fresh spin, drive the
+  // outer side beyond steady-state with the inner side actively braked.
+  // This breaks static friction faster than a pure pivot.
+  bool kicking = (now - searchStartTime) < SEARCH_KICK_MS;
 
-      if (now - stateStartTime > SEARCH_TURN_MS) {
-        motorsStop();
-        searchState = 1;
-        stateStartTime = now;
-      }
-      break;
-
-    case 1:
-      if (now - stateStartTime > SEARCH_PAUSE_MS) {
-        searchState = 2;
-        stateStartTime = now;
-      }
-      break;
-
-    case 2:
-      if (searchDir == 0) {
-        motorsTurnLeft(min(255, SPEED_TURN + 30));
-      } else {
-        motorsTurnRight(min(255, SPEED_TURN + 30));
-      }
-
-      if (now - stateStartTime > SEARCH_FAST_TURN_MS) {
-        motorsStop();
-        searchState = 0;
-        stateStartTime = now;
-        searchDir = !searchDir;
-      }
-      break;
+  if (searchDir == 0) {
+    if (kicking) {
+      // Right pivot kick: outer (left) full forward, inner (right) full reverse + brake
+      driveRaw(255, -255);
+    } else {
+      motorsTurnRight(255);
+    }
+  } else {
+    if (kicking) {
+      driveRaw(-255, 255);
+    } else {
+      motorsTurnLeft(255);
+    }
   }
 
   if (now - searchStartTime > SEARCH_RESET_MS) {
     searchStartTime = now;
-    if (random(0, 100) < 30) {
+    if (!searchDirLocked) {
       searchDir = !searchDir;
-      searchState = 0;
-      stateStartTime = millis();
     }
   }
 }
@@ -341,48 +437,74 @@ void aggressiveSearchInPlace() {
 // ---------- ATTACK ----------
 
 void smartAttack(bool oppL, bool oppFL, bool oppFR, bool oppR) {
+  // oppFL / oppFR are now memory-based, so they stay stable across the
+  // alternating ultrasonic read pattern. Use them directly to avoid
+  // single-frame flapping into the wrong branch.
   bool oppFC = oppFL && oppFR;
 
-  if (oppL && !oppFL && !oppFR) {
+  if (oppFC) {
+    bool veryClose =
+      (frontLeftDistance >= FRONT_MIN_CM && frontLeftDistance <= FRONT_CLOSE_CM) ||
+      (frontRightDistance >= FRONT_MIN_CM && frontRightDistance <= FRONT_CLOSE_CM);
+    motorsForward(veryClose ? SPEED_RUSH : SPEED_ATTACK);
+    return;
+  }
+
+  // Only ONE ultrasonic sees the target — pivot HARD toward that side
+  // until both ultrasonics confirm before we charge.
+  if (oppFL) {
+    searchDir = 1;
+    searchDirLocked = true;
     motorsTurnLeft(255);
     return;
   }
 
-  if (oppR && !oppFL && !oppFR) {
+  if (oppFR) {
+    searchDir = 0;
+    searchDirLocked = true;
     motorsTurnRight(255);
     return;
   }
 
-  if (oppFC) {
-    if (frontLeftDistance <= FRONT_CLOSE_CM || frontRightDistance <= FRONT_CLOSE_CM) {
-      motorsForward(SPEED_RUSH);
-    } else {
-      motorsForward(SPEED_ATTACK);
+  // IR-only detection: spin toward the side that sees the enemy NOW.
+  // This must come before the frontLock fall-through so the side IRs
+  // can override a stale "centered" lock.
+  if (oppL && !oppR) {
+    searchDir = 1;
+    searchDirLocked = true;
+    motorsTurnLeft(255);
+    return;
+  }
+  if (oppR && !oppL) {
+    searchDir = 0;
+    searchDirLocked = true;
+    motorsTurnRight(255);
+    return;
+  }
+
+  if (frontLockActive) {
+    if (frontLockDirection < 0) {
+      searchDir = 1;
+      searchDirLocked = true;
+      motorsTurnLeft(255);
+      return;
     }
-    return;
+    if (frontLockDirection > 0) {
+      searchDir = 0;
+      searchDirLocked = true;
+      motorsTurnRight(255);
+      return;
+    }
+    // Centered lock with no current detection on either side.
+    // Inch forward only briefly; then fall through to search.
+    if (oppL && oppR) {
+      motorsForward(SPEED_ATTACK);
+      return;
+    }
+    // No corroborating sensor: don't drive blind, search instead.
   }
 
-  if (oppFL) {
-    motorsArcLeft(SPEED_CENTER - 40, SPEED_CENTER + 35);
-    return;
-  }
-
-  if (oppFR) {
-    motorsArcRight(SPEED_CENTER + 35, SPEED_CENTER - 40);
-    return;
-  }
-
-  if (oppL) {
-    motorsArcLeft(-SPEED_TURN, SPEED_TURN);
-    return;
-  }
-
-  if (oppR) {
-    motorsArcRight(SPEED_TURN, -SPEED_TURN);
-    return;
-  }
-
-  motorsStop();
+  aggressiveSearchInPlace();
 }
 
 // ---------- START BUTTON ----------
@@ -403,6 +525,8 @@ void handleStartButton() {
         waitingStart = false;
         motorsStop();
         escapeActive = false;
+        frontLockActive = false;
+        frontLockDirection = 0;
       }
     }
   }
@@ -413,6 +537,23 @@ void handleStartButton() {
     waitingStart = false;
     robotOn = true;
     resetSearchState();
+    frontLockActive = false;
+    frontLockDirection = 0;
+    frontLeftHits = 0;
+    frontRightHits = 0;
+    frontLeftDistance = FRONT_NO_TARGET_CM;
+    frontRightDistance = FRONT_NO_TARGET_CM;
+    lastFrontLeftSeen = 0;
+    lastFrontRightSeen = 0;
+    lastIrLeftSeen = 0;
+    lastIrRightSeen = 0;
+    lastLineFLSeen = 0;
+    lastLineFRSeen = 0;
+    lastLineBLSeen = 0;
+    lastLineBRSeen = 0;
+    robotStartedAt = millis();
+    // searchDir already randomized at button press; keep it.
+    searchDirLocked = false;
   }
 }
 
@@ -481,6 +622,12 @@ void setup() {
   pinMode(ENA, OUTPUT);
   pinMode(ENB, OUTPUT);
 
+  // Drive the L298N enable pins at 20kHz instead of the ESP32 default
+  // (~1kHz). 1kHz is in the audio band, leaks switching losses, and
+  // produces less average torque on a 4-motor / single-driver setup.
+  analogWriteFrequency(ENA, PWM_FREQ_HZ);
+  analogWriteFrequency(ENB, PWM_FREQ_HZ);
+
   pinMode(BTN_START, INPUT_PULLUP);
 
   motorsStop();
@@ -508,10 +655,14 @@ void loop() {
 
   if (irLeftNow) {
     lastIrLeftSeen = now;
+    searchDir = 1;
+    searchDirLocked = true;
   }
 
   if (irRightNow) {
     lastIrRightSeen = now;
+    searchDir = 0;
+    searchDirLocked = true;
   }
 
   if (lineFLNow) {
@@ -530,6 +681,9 @@ void loop() {
     lastLineBRSeen = now;
   }
 
+  // Use memory-based detections to feed the decision logic. This is
+  // the main jitter killer: alternating ultrasonic reads + single-frame
+  // IR dropouts would otherwise flap detection state every loop.
   bool oppL = isIrLeftDetected();
   bool oppR = isIrRightDetected();
   bool lineFL = isLineFLDetected();
@@ -537,7 +691,7 @@ void loop() {
   bool lineBL = isLineBLDetected();
   bool lineBR = isLineBRDetected();
 
-  if (!escapeActive && (lineFL || lineFR || lineBL || lineBR)) {
+  if (lineFL || lineFR || lineBL || lineBR) {
     handleLineEscape(lineFL, lineFR, lineBL, lineBR);
   }
 
@@ -546,22 +700,29 @@ void loop() {
     return;
   }
 
-  // Skip ultrasonic polling on loops where the side IR already sees something.
-  if (!(oppL || oppR)) {
-    updateFrontSensors();
-  }
+  updateFrontSensors();
 
   bool oppFL = isFrontLeftDetected();
   bool oppFR = isFrontRightDetected();
+  updateFrontLockState(oppFL, oppFR);
 
   printDebug(lineFL, lineFR, lineBL, lineBR, oppL, oppFL, oppFR, oppR);
 
+  if (handleBrakeRush()) {
+    return;
+  }
+
   bool anyEnemy = oppL || oppFL || oppFR || oppR;
 
-  if (anyEnemy) {
-    resetSearchState();
-    smartAttack(oppL, oppFL, oppFR, oppR);
-  } else {
+  if (!anyEnemy && !frontLockActive) {
     aggressiveSearchInPlace();
+    return;
   }
+
+  // Transitioning into engagement — reset spin timer once, but DON'T
+  // wipe searchDirLocked: IR / front-lock direction must persist.
+  if (searchStartTime != 0) {
+    searchStartTime = 0;
+  }
+  smartAttack(oppL, oppFL, oppFR, oppR);
 }
