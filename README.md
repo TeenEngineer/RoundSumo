@@ -3,7 +3,11 @@ A sumo robot that I made for km.edu.uz
 
 Hello! I made this robot not only for a competition in my local country, Uzbekistan, but I also made it because of statis on hack club. The name for the robot was inspired by the shape of the robot, because it's "round". The code and the CAD files are available. I used 2 SEN0019 IR sensors on the sides, 2 HC-SR04s for the front, 4 line follower sensors for edge detection, and one L298N to power 4 360 RPM motors. I also used an external button for starting the countdown.
 
-Here is the circuit diagram for my ESP32(Check pinout on your specific model of esp32, because I used esp-wroom32, while you may be using another model. Connect pins according to your diagram):
+Here is a screenshot of what the robot in CAD form looks like:
+
+<img width="970" height="748" alt="2026-04-23_21-16-52" src="https://github.com/user-attachments/assets/a0e59930-4a0f-4e99-91de-fa235177bcff" />
+
+Also, here is the circuit diagram for my ESP32(Check pinout on your specific model of esp32, because I used esp-wroom32, while you may be using another model. Connect pins according to your diagram):
 
 <img width="1585" height="778" alt="2026-05-06_21-00-55" src="https://github.com/user-attachments/assets/0ec9be62-9386-472e-8968-40368b2431d4" />
 
