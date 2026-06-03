@@ -8,12 +8,12 @@ Bill Of Materials:
 | Part name|Quantity|Link                                 |
 | ------------------------------------------------------- |
 | JGA25-370 360 RPM 12V motor|4|https://ali.click/u0bqd1a |
-| HC-SR04|2|                                              |
-| DFRobot SEN0019|2|https://ali.click/y4bqd1v             |
-| ESP-WROOM32|1|                                          |
-| L298N motor driver|1|                                   |
-| CR3050B 5V converter|1|https://ali.click/xebqd1w        |
-| KY-033 line sensor|4|                                   |
+| HC-SR04|2| |
+| DFRobot SEN0019|2|https://ali.click/y4bqd1v |
+| ESP-WROOM32|1| |
+| L298N motor driver|1| |
+| CR3050B 5V converter|1|https://ali.click/xebqd1w |
+| KY-033 line sensor|4| |
 
 Here is a screenshot of what the robot in CAD form looks like:
 
