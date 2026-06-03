@@ -3,6 +3,18 @@ A sumo robot that I made for km.edu.uz
 
 Hello! I made this robot not only for a competition in my local country, Uzbekistan, but I also made it because of statis on hack club. The name for the robot was inspired by the shape of the robot, because it's "round". The code and the CAD files are available. I used 2 SEN0019 IR sensors on the sides, 2 HC-SR04s for the front, 4 line follower sensors for edge detection, and one L298N to power 4 360 RPM motors. I also used an external button for starting the countdown.
 
+Bill Of Materials:
+
+| Part name;Quantity;Link                                 |
+| ------------------------------------------------------- |
+| JGA25-370 360 RPM 12V motor;4;https://ali.click/u0bqd1a |
+| HC-SR04;2;                                              |
+| DFRobot SEN0019;2;https://ali.click/y4bqd1v             |
+| ESP-WROOM32;1;                                          |
+| L298N motor driver;1;                                   |
+| CR3050B 5V converter;1;https://ali.click/xebqd1w        |
+| KY-033 line sensor;4;                                   |
+
 Here is a screenshot of what the robot in CAD form looks like:
 
 <img width="970" height="748" alt="2026-04-23_21-16-52" src="https://github.com/user-attachments/assets/a0e59930-4a0f-4e99-91de-fa235177bcff" />
