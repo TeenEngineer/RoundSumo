@@ -14,6 +14,7 @@ Bill Of Materials:
 |L298N motor driver         |1       |                         |
 |CR3050B 5V converter       |1       |https://ali.click/xebqd1w|
 |KY-033 line sensor         |4       |                         |
+|65mm silicone wheel        |4       |                         |
 
 Here is a screenshot of what the robot in CAD form looks like:
 
