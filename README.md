@@ -30,27 +30,30 @@ Also, here is the circuit diagram for my ESP32(Check pinout on your specific mod
 And here are the pinouts, just in case:
 
 IR SENSORS:
-Left: 34
+Left: 34,
 Right: 35
 
+
 Ultrasonic sensors:
-TRIG Left: 4
-ECHO Left: 16
-TRIG Right: 5
+TRIG Left: 4,
+ECHO Left: 16,
+TRIG Right: 5,
 ECHO Right: 17
 
-LINE SENSORS
-Front Left: 32
-Front Right: 33
-Back Left: 21
+
+LINE SENSORS:
+Front Left: 32,
+Front Right: 33,
+Back Left: 21,
 Back Right: 22
 
-MOTORS
-ENA: 18
-IN1: 14
-IN2: 27
-IN3: 26
-IN4: 25
+
+MOTORS:
+ENA: 18,
+IN1: 14,
+IN2: 27,
+IN3: 26,
+IN4: 25,
 ENB: 19
 
 # Progress, images of the build
