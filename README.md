@@ -1,10 +1,10 @@
 # RoundSumo
 A sumo robot that I made for km.edu.uz
 
+# Project description
 Hello! I made this robot not only for a competition in my local country, Uzbekistan, but I also made it because of statis on hack club. The name for the robot was inspired by the shape of the robot, because it's "round". The code and the CAD files are available. I used 2 SEN0019 IR sensors on the sides, 2 HC-SR04s for the front, 4 line follower sensors for edge detection, and one L298N to power 4 360 RPM motors. I also used an external button for starting the countdown.
 
-Bill Of Materials:
-
+# Bill Of Materials:
 |Part name                  |Quantity|Link                     |
 |---------------------------|--------|-------------------------|
 |JGA25-370 360 RPM 12V motor|4       |https://ali.click/u0bqd1a|
@@ -16,14 +16,17 @@ Bill Of Materials:
 |KY-033 line sensor         |4       |                         |
 |65mm silicone wheel        |4       |                         |
 
+# CAD
 Here is a screenshot of what the robot in CAD form looks like:
 
 <img width="970" height="748" alt="2026-04-23_21-16-52" src="https://github.com/user-attachments/assets/a0e59930-4a0f-4e99-91de-fa235177bcff" />
 
+# Circuit diagram
 Also, here is the circuit diagram for my ESP32(Check pinout on your specific model of esp32, because I used esp-wroom32, while you may be using another model. Connect pins according to your diagram):
 
 <img width="1585" height="778" alt="2026-05-06_21-00-55" src="https://github.com/user-attachments/assets/0ec9be62-9386-472e-8968-40368b2431d4" />
 
+# Pinouts
 And here are the pinouts, just in case:
 
 IR SENSORS:
@@ -50,6 +53,7 @@ IN3: 26
 IN4: 25
 ENB: 19
 
+# Progress, images of the build
 And, here are some photos of the progress))
 <img width="960" height="1280" alt="image" src="https://github.com/user-attachments/assets/10a04574-0195-4605-acf1-b0d4c3f64ebd" />
 
