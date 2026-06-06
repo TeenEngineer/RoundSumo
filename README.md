@@ -14,7 +14,7 @@ Hello! I made this robot not only for a competition in my local country, Uzbekis
 |L298N motor driver         |1       |                         |
 |CR3050B 5V converter       |1       |https://ali.click/xebqd1w|
 |KY-033 line sensor         |4       |                         |
-|65mm silicone wheel        |4       |                         |
+|65mm silicone wheel & tire |4       |https://ali.click/rc5zd1hбб(tire), https://ali.click/pd5zd10(wheel and couplings)|
 
 # CAD
 Here is a screenshot of what the robot in CAD form looks like:
