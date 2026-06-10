@@ -56,6 +56,15 @@ IN3: 26,
 IN4: 25,
 ENB: 19
 
+# The robot in action
+**The progress, images of the build are at the bottom**
+
+https://github.com/user-attachments/assets/c455ae6e-ef34-4682-b008-044727d600a6
+
+https://github.com/user-attachments/assets/11a2001b-4e5e-49d3-a010-1698324c45ee
+
+https://github.com/user-attachments/assets/0a8def3c-9945-4a7f-9428-d5f1029c288a
+
 # Progress, images of the build
 And, here are some photos of the progress))
 <img width="960" height="1280" alt="image" src="https://github.com/user-attachments/assets/10a04574-0195-4605-acf1-b0d4c3f64ebd" />
